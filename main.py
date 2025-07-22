@@ -21,6 +21,8 @@ def main(config):
         solver.train()
     elif config.mode == 'test':
         solver.test()
+    elif config.mode == 'predict':
+        solver.detect_anomalies(thresh=config.threshold)
 
     return solver
 
@@ -37,10 +39,13 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1024)
     parser.add_argument('--pretrained_model', type=str, default=None)
     parser.add_argument('--dataset', type=str, default='credit')
-    parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])
+    parser.add_argument('--mode', type=str, default='train', choices=['train', 'test', 'predict'])
     parser.add_argument('--data_path', type=str, default='./dataset/creditcard_ts.csv')
     parser.add_argument('--model_save_path', type=str, default='checkpoints')
     parser.add_argument('--anormly_ratio', type=float, default=4.00)
+    parser.add_argument('--output_path', type=str, default='predictions/pred.csv')
+    parser.add_argument('--threshold', type=float, default=0.5)
+    parser.add_argument('--visualize', type=str2bool, default=False, help='Whether to visualize the results')
 
     config = parser.parse_args()
 
