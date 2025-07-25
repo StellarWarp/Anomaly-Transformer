@@ -36,7 +36,7 @@ def _find_continuous_intervals(binary_array: np.ndarray) -> List[Tuple[int, int]
     return list(zip(starts, ends))
 
 
-def visualization_three_color_status(time_series: np.ndarray, label: np.ndarray, predict: np.ndarray):
+def visualization_three_color_status(fps: np.ndarray, label: np.ndarray, predict: np.ndarray):
     plt.style.use('seaborn-v0_8-whitegrid')
     plt.figure(figsize=(20, 6))
 
@@ -46,7 +46,7 @@ def visualization_three_color_status(time_series: np.ndarray, label: np.ndarray,
     fn_mask = (label == 1) & (predict == 0)
 
     # 2. Plot the main time series data
-    plt.plot(time_series, color='black', linewidth=1.2, alpha=0.9, label='Time Series Data')
+    plt.plot(fps, color='black', linewidth=1.2, alpha=0.9, label='Time Series Data')
 
     # 3. Find and mark intervals for each status
     # TP - Yellow
@@ -75,12 +75,12 @@ def visualization_three_color_status(time_series: np.ndarray, label: np.ndarray,
     # plt.show()
 
 
-def visualization_prediction(time_series: np.ndarray, energy: np.ndarray, predict: np.ndarray):
+def visualization_prediction(fps: np.ndarray, energy: np.ndarray, predict: np.ndarray):
     plt.style.use('seaborn-v0_8-whitegrid')
     fig, axs = plt.subplots(2, 1, figsize=(20, 8), sharex=True, gridspec_kw={'height_ratios': [3, 1]})
 
     # Plot the main time series data
-    axs[0].plot(time_series, color='black', linewidth=1.2, alpha=0.9, label='Time Series Data')
+    axs[0].plot(fps, color='black', linewidth=1.2, alpha=0.9, label='Time Series Data')
     for start, end in _find_continuous_intervals(predict):
         axs[0].axvspan(start, end, color='yellow', alpha=0.4)
     axs[0].set_title('Model Prediction Status Visualization', fontsize=18)
@@ -496,9 +496,13 @@ class Solver(object):
         criterion = nn.MSELoss(reduce=False)
 
         attens_energy = []
+        input_seq = []
+        output_seq = []
         for i, input_data in enumerate(self.predict_loader):
             input = input_data.float().to(self.device)
             output, series, prior, _ = self.model(input)
+            input_seq.append(input.detach().cpu().numpy())
+            output_seq.append(output.detach().cpu().numpy())
 
             loss = torch.mean(criterion(input, output), dim=-1)
 
@@ -547,13 +551,37 @@ class Solver(object):
         
         import pandas as pd
 
+        input_seq = np.concatenate(input_seq, axis=0).reshape(-1, input_seq[0].shape[-1])
+        output_seq = np.concatenate(output_seq, axis=0).reshape(-1, output_seq[0].shape[-1])
+
+        # 绘制每个通道的输入和输出对比图
+        import matplotlib.pyplot as plt
+        
+        # 创建保存目录
+        os.makedirs('cmp_channel', exist_ok=True)
+        
+
         if(self.visualize):
             # 读取数据文件
             print("Reading data for visualization...")
             df = pd.read_csv(self.data_path)
-            time_series = df.iloc[:, 1].values
+            fps = df.iloc[:, 1].values
             print("Visualizing results...")
-            visualization_prediction(time_series,test_energy, pred)
+            visualization_prediction(fps,test_energy, pred)
+            
+            num_channels = input_seq.shape[-1]
+            for ch in range(num_channels):
+                plt.figure(figsize=(20, 6))
+                # Adjust indexing based on the actual shape of input_seq and output_seq
+                plt.plot(input_seq[:, ch], label=f'Input Channel {ch}', color='blue', alpha=0.7)
+                plt.plot(output_seq[:, ch], label=f'Output Channel {ch}', color='orange', alpha=0.7)
+                plt.title(f'Input vs Output Comparison for Channel {ch}')
+                plt.xlabel('Time Step')
+                plt.ylabel('Value')
+                plt.legend()
+                plt.tight_layout()
+                plt.savefig(f'cmp_channel/input_output_comparison_channel_{ch}.png', dpi=300)
+                plt.close()
 
         # 找到所有异常区间
         intervals = _find_continuous_intervals(pred)

@@ -127,3 +127,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+cmp_channel/
+visualization_prediction.png
+visualization_three_color_status.png
+checkpoints/
+dataset/
